@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
+import { createRequire } from "node:module";
 import { handleCommand, SuggestOptions } from "./suggest.js";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json");
 
 const program = new Command();
 
 program
   .name("autocomplete")
   .description("Query Google and YouTube autocomplete suggestions")
-  .version("1.0.0");
+  .version(pkg.version);
 
 program
   .command("google")
