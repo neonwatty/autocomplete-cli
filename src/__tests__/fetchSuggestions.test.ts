@@ -539,11 +539,17 @@ describe("fetchSuggestions", () => {
   // Amazon tests
   describe("Amazon source", () => {
     it("fetches Amazon suggestions successfully", async () => {
-      const mockResponse = ["laptop", ["laptop stand", "laptop bag", "laptop sleeve"], [], []];
+      const mockResponse = {
+        suggestions: [
+          { value: "laptop stand" },
+          { value: "laptop bag" },
+          { value: "laptop sleeve" },
+        ],
+      };
 
       nock("https://completion.amazon.com")
-        .get("/search/complete")
-        .query({ "search-alias": "aps", client: "amazon-search-ui", mkt: "1", q: "laptop" })
+        .get("/api/2017/suggestions")
+        .query({ mid: "ATVPDKIKX0DER", alias: "aps", prefix: "laptop" })
         .reply(200, mockResponse);
 
       const result = await fetchSuggestions("laptop", {}, "amazon");
@@ -551,10 +557,10 @@ describe("fetchSuggestions", () => {
     });
 
     it("handles empty Amazon response", async () => {
-      const mockResponse = ["xyz", [], [], []];
+      const mockResponse = { suggestions: [] };
 
       nock("https://completion.amazon.com")
-        .get("/search/complete")
+        .get("/api/2017/suggestions")
         .query(true)
         .reply(200, mockResponse);
 
@@ -564,7 +570,7 @@ describe("fetchSuggestions", () => {
 
     it("throws error on Amazon HTTP error", async () => {
       nock("https://completion.amazon.com")
-        .get("/search/complete")
+        .get("/api/2017/suggestions")
         .query(true)
         .reply(503);
 
@@ -575,57 +581,48 @@ describe("fetchSuggestions", () => {
   // Bing tests
   describe("Bing source", () => {
     it("fetches Bing suggestions successfully", async () => {
-      const mockXmlResponse = `<?xml version="1.0"?>
-        <SearchSuggestion>
-          <Query>weather</Query>
-          <Section>
-            <Item><Text>weather today</Text></Item>
-            <Item><Text>weather forecast</Text></Item>
-            <Item><Text>weather radar</Text></Item>
-          </Section>
-        </SearchSuggestion>`;
+      const mockHtmlResponse = `<ul class="sa_drw">
+        <li query="weather today">weather today</li>
+        <li query="weather forecast">weather forecast</li>
+        <li query="weather radar">weather radar</li>
+      </ul>`;
 
-      nock("https://api.bing.com")
-        .get("/qsml.aspx")
-        .query({ Market: "en-US", query: "weather" })
-        .reply(200, mockXmlResponse);
+      nock("https://www.bing.com")
+        .get("/AS/Suggestions")
+        .query({ qry: "weather", cvid: "1" })
+        .reply(200, mockHtmlResponse);
 
       const result = await fetchSuggestions("weather", {}, "bing");
       expect(result).toEqual(["weather today", "weather forecast", "weather radar"]);
     });
 
-    it("handles Bing with custom market", async () => {
-      const mockXmlResponse = `<?xml version="1.0"?>
-        <SearchSuggestion>
-          <Section>
-            <Item><Text>wetter heute</Text></Item>
-          </Section>
-        </SearchSuggestion>`;
+    it("handles Bing with custom language", async () => {
+      const mockHtmlResponse = `<ul><li query="wetter heute">wetter heute</li></ul>`;
 
-      nock("https://api.bing.com")
-        .get("/qsml.aspx")
-        .query({ Market: "de-DE", query: "wetter" })
-        .reply(200, mockXmlResponse);
+      nock("https://www.bing.com")
+        .get("/AS/Suggestions")
+        .query({ qry: "wetter", cvid: "1", setlang: "de" })
+        .reply(200, mockHtmlResponse);
 
-      const result = await fetchSuggestions("wetter", { lang: "de", country: "de" }, "bing");
+      const result = await fetchSuggestions("wetter", { lang: "de" }, "bing");
       expect(result).toEqual(["wetter heute"]);
     });
 
     it("handles empty Bing response", async () => {
-      const mockXmlResponse = `<?xml version="1.0"?><SearchSuggestion><Query>xyz</Query></SearchSuggestion>`;
+      const mockHtmlResponse = `<ul class="sa_drw"></ul>`;
 
-      nock("https://api.bing.com")
-        .get("/qsml.aspx")
+      nock("https://www.bing.com")
+        .get("/AS/Suggestions")
         .query(true)
-        .reply(200, mockXmlResponse);
+        .reply(200, mockHtmlResponse);
 
       const result = await fetchSuggestions("xyz", {}, "bing");
       expect(result).toEqual([]);
     });
 
     it("throws error on Bing HTTP error", async () => {
-      nock("https://api.bing.com")
-        .get("/qsml.aspx")
+      nock("https://www.bing.com")
+        .get("/AS/Suggestions")
         .query(true)
         .reply(429);
 
