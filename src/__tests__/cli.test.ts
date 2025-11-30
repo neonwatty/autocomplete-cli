@@ -11,11 +11,12 @@ function runCli(args: string): { stdout: string; stderr: string; exitCode: numbe
       timeout: 10000,
     });
     return { stdout, stderr: "", exitCode: 0 };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const execError = error as { stdout?: string; stderr?: string; status?: number };
     return {
-      stdout: error.stdout || "",
-      stderr: error.stderr || "",
-      exitCode: error.status || 1,
+      stdout: execError.stdout || "",
+      stderr: execError.stderr || "",
+      exitCode: execError.status || 1,
     };
   }
 }
@@ -56,7 +57,7 @@ describe("CLI", () => {
   });
 
   it("runs without error when no command provided", () => {
-    const { stdout, stderr, exitCode } = runCli("");
+    const { stdout, stderr } = runCli("");
 
     // Commander shows help when no command is given (may be stdout or stderr)
     const output = stdout + stderr;

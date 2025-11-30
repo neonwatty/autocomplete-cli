@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import nock from "nock";
-import { fetchSuggestions, BASE_URL } from "../suggest.js";
+import { fetchSuggestions } from "../suggest.js";
 
 describe("fetchSuggestions", () => {
   beforeEach(() => {
