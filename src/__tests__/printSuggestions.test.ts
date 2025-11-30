@@ -22,10 +22,8 @@ describe("printSuggestions", () => {
   it("prints each suggestion on its own line", () => {
     printSuggestions(["suggestion 1", "suggestion 2", "suggestion 3"]);
 
-    expect(consoleSpy).toHaveBeenCalledTimes(3);
-    expect(consoleSpy).toHaveBeenNthCalledWith(1, "suggestion 1");
-    expect(consoleSpy).toHaveBeenNthCalledWith(2, "suggestion 2");
-    expect(consoleSpy).toHaveBeenNthCalledWith(3, "suggestion 3");
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+    expect(consoleSpy).toHaveBeenCalledWith("suggestion 1\nsuggestion 2\nsuggestion 3");
   });
 
   it("prints single suggestion correctly", () => {

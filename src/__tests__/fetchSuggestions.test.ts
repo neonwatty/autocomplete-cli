@@ -1,6 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import nock from "nock";
-import { fetchSuggestions, resetRateLimiter, DEFAULT_DELAY_MS } from "../suggest.js";
+import {
+  fetchSuggestions,
+  resetRateLimiter,
+  DEFAULT_DELAY_MS,
+  formatSuggestions,
+  outputSuggestions,
+  expandQuery,
+  fetchExpandedSuggestions,
+  ALPHABET,
+  QUESTION_WORDS,
+} from "../suggest.js";
 
 describe("fetchSuggestions", () => {
   beforeEach(() => {
@@ -628,5 +638,272 @@ describe("fetchSuggestions", () => {
 
       await expect(fetchSuggestions("query", {}, "bing")).rejects.toThrow("HTTP error: 429");
     });
+  });
+});
+
+describe("formatSuggestions", () => {
+  it("formats as text (default)", () => {
+    const result = formatSuggestions(["one", "two", "three"]);
+    expect(result).toBe("one\ntwo\nthree");
+  });
+
+  it("formats as text explicitly", () => {
+    const result = formatSuggestions(["one", "two", "three"], "text");
+    expect(result).toBe("one\ntwo\nthree");
+  });
+
+  it("formats as JSON", () => {
+    const result = formatSuggestions(["one", "two", "three"], "json");
+    expect(result).toBe('[\n  "one",\n  "two",\n  "three"\n]');
+    expect(JSON.parse(result)).toEqual(["one", "two", "three"]);
+  });
+
+  it("formats as CSV with header", () => {
+    const result = formatSuggestions(["one", "two", "three"], "csv");
+    expect(result).toBe("suggestion\none\ntwo\nthree");
+  });
+
+  it("escapes commas in CSV", () => {
+    const result = formatSuggestions(["hello, world", "test"], "csv");
+    expect(result).toBe('suggestion\n"hello, world"\ntest');
+  });
+
+  it("escapes quotes in CSV", () => {
+    const result = formatSuggestions(['say "hello"', "test"], "csv");
+    expect(result).toBe('suggestion\n"say ""hello"""\ntest');
+  });
+
+  it("escapes both commas and quotes in CSV", () => {
+    const result = formatSuggestions(['hello, "world"'], "csv");
+    expect(result).toBe('suggestion\n"hello, ""world"""');
+  });
+
+  it("handles empty array for text", () => {
+    const result = formatSuggestions([], "text");
+    expect(result).toBe("");
+  });
+
+  it("handles empty array for JSON", () => {
+    const result = formatSuggestions([], "json");
+    expect(result).toBe("[]");
+  });
+
+  it("handles empty array for CSV", () => {
+    const result = formatSuggestions([], "csv");
+    expect(result).toBe("suggestion\n");
+  });
+});
+
+describe("outputSuggestions", () => {
+  let consoleSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it("outputs text format by default", () => {
+    outputSuggestions(["one", "two"], {});
+    expect(consoleSpy).toHaveBeenCalledWith("one\ntwo");
+  });
+
+  it("outputs JSON format", () => {
+    outputSuggestions(["one", "two"], { format: "json" });
+    expect(consoleSpy).toHaveBeenCalledWith('[\n  "one",\n  "two"\n]');
+  });
+
+  it("outputs CSV format", () => {
+    outputSuggestions(["one", "two"], { format: "csv" });
+    expect(consoleSpy).toHaveBeenCalledWith("suggestion\none\ntwo");
+  });
+
+  it('outputs "No suggestions found." for empty text', () => {
+    outputSuggestions([], {});
+    expect(consoleSpy).toHaveBeenCalledWith("No suggestions found.");
+  });
+
+  it("outputs [] for empty JSON", () => {
+    outputSuggestions([], { format: "json" });
+    expect(consoleSpy).toHaveBeenCalledWith("[]");
+  });
+
+  it("outputs header only for empty CSV", () => {
+    outputSuggestions([], { format: "csv" });
+    expect(consoleSpy).toHaveBeenCalledWith("suggestion");
+  });
+});
+
+describe("expandQuery", () => {
+  it("returns original query when no expansion options", () => {
+    const result = expandQuery("coffee", {});
+    expect(result).toEqual(["coffee"]);
+  });
+
+  it("expands with alphabet suffixes", () => {
+    const result = expandQuery("coffee", { expand: true });
+    expect(result).toHaveLength(27); // original + 26 letters
+    expect(result[0]).toBe("coffee");
+    expect(result[1]).toBe("coffee a");
+    expect(result[26]).toBe("coffee z");
+  });
+
+  it("expands with question words", () => {
+    const result = expandQuery("coffee", { questions: true });
+    expect(result).toHaveLength(11); // original + 10 question words
+    expect(result[0]).toBe("coffee");
+    expect(result).toContain("what coffee");
+    expect(result).toContain("how coffee");
+    expect(result).toContain("why coffee");
+  });
+
+  it("expands with custom prefixes", () => {
+    const result = expandQuery("coffee", { prefix: "best,top,how to" });
+    expect(result).toHaveLength(4); // original + 3 custom
+    expect(result[0]).toBe("coffee");
+    expect(result[1]).toBe("best coffee");
+    expect(result[2]).toBe("top coffee");
+    expect(result[3]).toBe("how to coffee");
+  });
+
+  it("trims whitespace from custom prefixes", () => {
+    const result = expandQuery("test", { prefix: " best , top " });
+    expect(result).toContain("best test");
+    expect(result).toContain("top test");
+  });
+
+  it("combines expand and questions", () => {
+    const result = expandQuery("coffee", { expand: true, questions: true });
+    expect(result).toHaveLength(37); // 1 + 26 + 10
+    expect(result[0]).toBe("coffee");
+    expect(result).toContain("coffee a");
+    expect(result).toContain("what coffee");
+  });
+
+  it("combines all expansion options", () => {
+    const result = expandQuery("coffee", {
+      expand: true,
+      questions: true,
+      prefix: "best,top",
+    });
+    expect(result).toHaveLength(39); // 1 + 26 + 10 + 2
+    expect(result).toContain("best coffee");
+    expect(result).toContain("top coffee");
+  });
+
+  it("exports ALPHABET constant", () => {
+    expect(ALPHABET).toHaveLength(26);
+    expect(ALPHABET[0]).toBe("a");
+    expect(ALPHABET[25]).toBe("z");
+  });
+
+  it("exports QUESTION_WORDS constant", () => {
+    expect(QUESTION_WORDS).toHaveLength(10);
+    expect(QUESTION_WORDS).toContain("what");
+    expect(QUESTION_WORDS).toContain("how");
+    expect(QUESTION_WORDS).toContain("why");
+  });
+});
+
+describe("fetchExpandedSuggestions", () => {
+  beforeEach(() => {
+    nock.cleanAll();
+    resetRateLimiter();
+  });
+
+  afterEach(() => {
+    nock.cleanAll();
+  });
+
+  it("fetches suggestions for original query only when no expansion", async () => {
+    nock("https://suggestqueries.google.com")
+      .get("/complete/search")
+      .query(true)
+      .reply(200, ["coffee", ["coffee beans", "coffee maker"]]);
+
+    const result = await fetchExpandedSuggestions("coffee", {}, "google");
+    expect(result).toEqual(["coffee beans", "coffee maker"]);
+  });
+
+  it("fetches expanded suggestions with alphabet", async () => {
+    // Mock original query
+    nock("https://suggestqueries.google.com")
+      .get("/complete/search")
+      .query((q) => q.q === "test")
+      .reply(200, ["test", ["test 1"]]);
+
+    // Mock "test a" query
+    nock("https://suggestqueries.google.com")
+      .get("/complete/search")
+      .query((q) => q.q === "test a")
+      .reply(200, ["test a", ["test apple"]]);
+
+    // Mock remaining alphabet queries
+    for (let i = 1; i < 26; i++) {
+      const letter = String.fromCharCode(97 + i); // b-z
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query((q) => q.q === `test ${letter}`)
+        .reply(200, [`test ${letter}`, []]);
+    }
+
+    const result = await fetchExpandedSuggestions(
+      "test",
+      { expand: true, delay: 0 },
+      "google"
+    );
+    expect(result).toContain("test 1");
+    expect(result).toContain("test apple");
+  });
+
+  it("deduplicates results", async () => {
+    // Mock both queries returning the same suggestion
+    nock("https://suggestqueries.google.com")
+      .get("/complete/search")
+      .query((q) => q.q === "test")
+      .reply(200, ["test", ["same result"]]);
+
+    nock("https://suggestqueries.google.com")
+      .get("/complete/search")
+      .query((q) => q.q === "best test")
+      .reply(200, ["best test", ["same result", "different result"]]);
+
+    const result = await fetchExpandedSuggestions(
+      "test",
+      { prefix: "best", delay: 0 },
+      "google"
+    );
+
+    // Should only have "same result" once
+    expect(result.filter((r) => r === "same result")).toHaveLength(1);
+    expect(result).toContain("different result");
+  });
+
+  it("fetches with question word expansion", async () => {
+    // Mock original query
+    nock("https://suggestqueries.google.com")
+      .get("/complete/search")
+      .query((q) => q.q === "test")
+      .reply(200, ["test", ["test 1"]]);
+
+    // Mock question word queries
+    for (const word of QUESTION_WORDS) {
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query((q) => q.q === `${word} test`)
+        .reply(200, [`${word} test`, [`${word} test result`]]);
+    }
+
+    const result = await fetchExpandedSuggestions(
+      "test",
+      { questions: true, delay: 0 },
+      "google"
+    );
+
+    expect(result).toContain("test 1");
+    expect(result).toContain("what test result");
+    expect(result).toContain("how test result");
   });
 });

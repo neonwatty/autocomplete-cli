@@ -31,6 +31,10 @@ autocomplete <source> <query> [options]
 | `-l, --lang <code>` | Language code (e.g., `en`, `de`, `es`) |
 | `-c, --country <code>` | Country code (e.g., `us`, `uk`, `de`) |
 | `-d, --delay <ms>` | Delay between API calls in ms (default: 100) |
+| `-e, --expand` | Expand with alphabet suffixes (a-z) |
+| `-q, --questions` | Expand with question words |
+| `-p, --prefix <list>` | Custom prefixes (comma-separated) |
+| `-f, --format <type>` | Output format: `text`, `json`, `csv` |
 
 ## Examples
 
@@ -50,8 +54,23 @@ autocomplete bing "wetter" --lang de
 # DuckDuckGo (short alias)
 autocomplete ddg "privacy browser"
 
-# Multiple queries with custom delay
-autocomplete google "query1" --delay 500
+# JSON output for scripting
+autocomplete google "typescript" --format json
+
+# CSV for spreadsheets
+autocomplete amazon "desk" --format csv > keywords.csv
+
+# Alphabet expansion (27 queries, ~270 results)
+autocomplete google "coffee" --expand
+
+# Question word expansion (what, how, why, etc.)
+autocomplete youtube "python" --questions
+
+# Custom prefixes
+autocomplete google "programming" --prefix "best,learn,how to"
+
+# Combined expansion with JSON output
+autocomplete google "seo" --expand --questions --format json
 ```
 
 ## Using with Claude Code / AI Agents
@@ -90,7 +109,7 @@ Use the autocomplete tool to compare suggestions across Google, YouTube, and Ama
 ```bash
 npm install          # Install dependencies
 npm run build        # Compile TypeScript
-npm test             # Run tests (79 tests)
+npm test             # Run tests (108 tests)
 npm run lint         # Lint code
 npm run typecheck    # Type check
 ```
