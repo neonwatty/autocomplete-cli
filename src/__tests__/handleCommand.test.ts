@@ -35,8 +35,7 @@ describe("handleCommand", () => {
 
     await handleCommand("query", {}, "google");
 
-    expect(consoleSpy).toHaveBeenCalledWith("suggestion1");
-    expect(consoleSpy).toHaveBeenCalledWith("suggestion2");
+    expect(consoleSpy).toHaveBeenCalledWith("suggestion1\nsuggestion2");
   });
 
   it("returns success false with error message on HTTP error", async () => {

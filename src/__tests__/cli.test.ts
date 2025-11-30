@@ -120,7 +120,8 @@ describe("CLI", () => {
       const { stdout, exitCode } = runCli("google --help");
 
       expect(exitCode).toBe(0);
-      expect(stdout).toContain("default: 100");
+      // Commander may split default across lines, so check for presence of default indicator
+      expect(stdout).toMatch(/default.*100/s);
     });
 
     it("accepts -d short flag in google command help", () => {

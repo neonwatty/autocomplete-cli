@@ -4,9 +4,6 @@ export const AMAZON_BASE_URL = "https://completion.amazon.com/api/2017/suggestio
 export const BING_BASE_URL = "https://www.bing.com/AS/Suggestions";
 export const DEFAULT_DELAY_MS = 100;
 
-// Keep for backwards compatibility
-export const BASE_URL = GOOGLE_BASE_URL;
-
 let lastCallTime = 0;
 
 export function resetRateLimiter(): void {
@@ -28,6 +25,21 @@ export interface SuggestOptions {
   country?: string;
   delay?: number;
 }
+
+export type OutputFormat = 'text' | 'json' | 'csv';
+
+export interface FormatOptions {
+  format?: OutputFormat;
+}
+
+export interface ExpandOptions {
+  expand?: boolean;
+  questions?: boolean;
+  prefix?: string;
+}
+
+export const ALPHABET = 'abcdefghijklmnopqrstuvwxyz'.split('');
+export const QUESTION_WORDS = ['what', 'how', 'why', 'when', 'where', 'who', 'which', 'can', 'does', 'is'];
 
 export type Source = "google" | "youtube" | "bing" | "amazon" | "duckduckgo";
 
@@ -185,13 +197,79 @@ export async function fetchSuggestions(
   }
 }
 
-export function printSuggestions(suggestions: string[]): void {
+export function formatSuggestions(suggestions: string[], format: OutputFormat = 'text'): string {
+  switch (format) {
+    case 'json':
+      return JSON.stringify(suggestions, null, 2);
+
+    case 'csv': {
+      const escaped = suggestions.map(s =>
+        s.includes(',') || s.includes('"')
+          ? `"${s.replace(/"/g, '""')}"`
+          : s
+      );
+      return 'suggestion\n' + escaped.join('\n');
+    }
+
+    case 'text':
+    default:
+      return suggestions.join('\n');
+  }
+}
+
+export function outputSuggestions(suggestions: string[], options: FormatOptions): void {
   if (suggestions.length === 0) {
-    console.log("No suggestions found.");
+    if (options.format === 'json') {
+      console.log('[]');
+    } else if (options.format === 'csv') {
+      console.log('suggestion');
+    } else {
+      console.log('No suggestions found.');
+    }
     return;
   }
 
-  suggestions.forEach((s) => console.log(s));
+  console.log(formatSuggestions(suggestions, options.format));
+}
+
+// Keep for backwards compatibility
+export function printSuggestions(suggestions: string[]): void {
+  outputSuggestions(suggestions, {});
+}
+
+export function expandQuery(query: string, options: ExpandOptions): string[] {
+  const queries: string[] = [query];
+
+  if (options.expand) {
+    queries.push(...ALPHABET.map(letter => `${query} ${letter}`));
+  }
+
+  if (options.questions) {
+    queries.push(...QUESTION_WORDS.map(word => `${word} ${query}`));
+  }
+
+  if (options.prefix) {
+    const prefixes = options.prefix.split(',').map(p => p.trim());
+    queries.push(...prefixes.map(prefix => `${prefix} ${query}`));
+  }
+
+  return queries;
+}
+
+export async function fetchExpandedSuggestions(
+  query: string,
+  options: SuggestOptions & ExpandOptions,
+  source: Source
+): Promise<string[]> {
+  const queries = expandQuery(query, options);
+  const allSuggestions: string[] = [];
+
+  for (const q of queries) {
+    const suggestions = await fetchSuggestions(q, options, source);
+    allSuggestions.push(...suggestions);
+  }
+
+  return [...new Set(allSuggestions)];
 }
 
 export interface CommandResult {
@@ -201,12 +279,16 @@ export interface CommandResult {
 
 export async function handleCommand(
   query: string,
-  options: SuggestOptions,
+  options: SuggestOptions & ExpandOptions & FormatOptions,
   source: Source
 ): Promise<CommandResult> {
   try {
-    const suggestions = await fetchSuggestions(query, options, source);
-    printSuggestions(suggestions);
+    const hasExpansion = options.expand || options.questions || options.prefix;
+    const suggestions = hasExpansion
+      ? await fetchExpandedSuggestions(query, options, source)
+      : await fetchSuggestions(query, options, source);
+
+    outputSuggestions(suggestions, options);
     return { success: true };
   } catch (error) {
     return { success: false, error: (error as Error).message };

@@ -2,7 +2,13 @@
 
 import { Command } from "commander";
 import { createRequire } from "node:module";
-import { handleCommand, SuggestOptions } from "./suggest.js";
+import { handleCommand, SuggestOptions, ExpandOptions, FormatOptions, OutputFormat } from "./suggest.js";
+
+type CommandOptions = SuggestOptions & ExpandOptions & FormatOptions;
+
+function validateFormat(format: string | undefined): format is OutputFormat {
+  return !format || ['text', 'json', 'csv'].includes(format);
+}
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json");
@@ -21,7 +27,15 @@ program
   .option("-l, --lang <code>", "Language code (e.g., en, de, es)")
   .option("-c, --country <code>", "Country code (e.g., us, uk, in)")
   .option("-d, --delay <ms>", "Delay between API calls in milliseconds (default: 100)", "100")
-  .action(async (query: string, options: SuggestOptions) => {
+  .option("-e, --expand", "Expand with alphabet suffixes (a-z)")
+  .option("-q, --questions", "Expand with question words")
+  .option("-p, --prefix <prefixes>", "Custom prefixes (comma-separated)")
+  .option("-f, --format <type>", "Output format: text, json, csv (default: text)")
+  .action(async (query: string, options: CommandOptions) => {
+    if (!validateFormat(options.format)) {
+      console.error("Error: Invalid format. Use: text, json, or csv");
+      process.exit(1);
+    }
     options.delay = parseInt(String(options.delay), 10);
     const result = await handleCommand(query, options, "google");
     if (!result.success) {
@@ -37,7 +51,15 @@ program
   .option("-l, --lang <code>", "Language code (e.g., en, de, es)")
   .option("-c, --country <code>", "Country code (e.g., us, uk, in)")
   .option("-d, --delay <ms>", "Delay between API calls in milliseconds (default: 100)", "100")
-  .action(async (query: string, options: SuggestOptions) => {
+  .option("-e, --expand", "Expand with alphabet suffixes (a-z)")
+  .option("-q, --questions", "Expand with question words")
+  .option("-p, --prefix <prefixes>", "Custom prefixes (comma-separated)")
+  .option("-f, --format <type>", "Output format: text, json, csv (default: text)")
+  .action(async (query: string, options: CommandOptions) => {
+    if (!validateFormat(options.format)) {
+      console.error("Error: Invalid format. Use: text, json, or csv");
+      process.exit(1);
+    }
     options.delay = parseInt(String(options.delay), 10);
     const result = await handleCommand(query, options, "youtube");
     if (!result.success) {
@@ -53,7 +75,15 @@ program
   .option("-l, --lang <code>", "Language code (e.g., en, de, es)")
   .option("-c, --country <code>", "Country code (e.g., us, uk, de)")
   .option("-d, --delay <ms>", "Delay between API calls in milliseconds (default: 100)", "100")
-  .action(async (query: string, options: SuggestOptions) => {
+  .option("-e, --expand", "Expand with alphabet suffixes (a-z)")
+  .option("-q, --questions", "Expand with question words")
+  .option("-p, --prefix <prefixes>", "Custom prefixes (comma-separated)")
+  .option("-f, --format <type>", "Output format: text, json, csv (default: text)")
+  .action(async (query: string, options: CommandOptions) => {
+    if (!validateFormat(options.format)) {
+      console.error("Error: Invalid format. Use: text, json, or csv");
+      process.exit(1);
+    }
     options.delay = parseInt(String(options.delay), 10);
     const result = await handleCommand(query, options, "bing");
     if (!result.success) {
@@ -67,7 +97,15 @@ program
   .description("Get Amazon autocomplete suggestions")
   .argument("<query>", "Search query")
   .option("-d, --delay <ms>", "Delay between API calls in milliseconds (default: 100)", "100")
-  .action(async (query: string, options: SuggestOptions) => {
+  .option("-e, --expand", "Expand with alphabet suffixes (a-z)")
+  .option("-q, --questions", "Expand with question words")
+  .option("-p, --prefix <prefixes>", "Custom prefixes (comma-separated)")
+  .option("-f, --format <type>", "Output format: text, json, csv (default: text)")
+  .action(async (query: string, options: CommandOptions) => {
+    if (!validateFormat(options.format)) {
+      console.error("Error: Invalid format. Use: text, json, or csv");
+      process.exit(1);
+    }
     options.delay = parseInt(String(options.delay), 10);
     const result = await handleCommand(query, options, "amazon");
     if (!result.success) {
@@ -82,7 +120,15 @@ program
   .description("Get DuckDuckGo autocomplete suggestions")
   .argument("<query>", "Search query")
   .option("-d, --delay <ms>", "Delay between API calls in milliseconds (default: 100)", "100")
-  .action(async (query: string, options: SuggestOptions) => {
+  .option("-e, --expand", "Expand with alphabet suffixes (a-z)")
+  .option("-q, --questions", "Expand with question words")
+  .option("-p, --prefix <prefixes>", "Custom prefixes (comma-separated)")
+  .option("-f, --format <type>", "Output format: text, json, csv (default: text)")
+  .action(async (query: string, options: CommandOptions) => {
+    if (!validateFormat(options.format)) {
+      console.error("Error: Invalid format. Use: text, json, or csv");
+      process.exit(1);
+    }
     options.delay = parseInt(String(options.delay), 10);
     const result = await handleCommand(query, options, "duckduckgo");
     if (!result.success) {
