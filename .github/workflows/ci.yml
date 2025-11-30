@@ -34,6 +34,7 @@ jobs:
         run: npm test
 
       - name: Run tests with coverage
+        if: matrix.node-version >= 20
         run: npm run test:coverage
 
       - name: Upload coverage reports
