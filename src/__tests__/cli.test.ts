@@ -30,7 +30,7 @@ describe("CLI", () => {
     const { stdout, exitCode } = runCli("--help");
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("Query Google and YouTube autocomplete suggestions");
+    expect(stdout).toContain("Query autocomplete suggestions from Google, YouTube, Bing, Amazon, and");
     expect(stdout).toContain("google");
     expect(stdout).toContain("youtube");
   });
@@ -135,6 +135,62 @@ describe("CLI", () => {
 
       expect(exitCode).toBe(0);
       expect(stdout).toMatch(/-d,?\s+--delay/);
+    });
+  });
+
+  describe("additional sources", () => {
+    it("shows bing command help", () => {
+      const { stdout, exitCode } = runCli("bing --help");
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("Get Bing autocomplete suggestions");
+      expect(stdout).toContain("--lang");
+      expect(stdout).toContain("--country");
+      expect(stdout).toContain("--delay");
+    });
+
+    it("shows amazon command help", () => {
+      const { stdout, exitCode } = runCli("amazon --help");
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("Get Amazon autocomplete suggestions");
+      expect(stdout).toContain("--delay");
+    });
+
+    it("shows duckduckgo command help", () => {
+      const { stdout, exitCode } = runCli("duckduckgo --help");
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("Get DuckDuckGo autocomplete suggestions");
+      expect(stdout).toContain("--delay");
+    });
+
+    it("supports ddg alias for duckduckgo", () => {
+      const { stdout, exitCode } = runCli("ddg --help");
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("Get DuckDuckGo autocomplete suggestions");
+    });
+
+    it("shows error when bing command missing query", () => {
+      const { stderr, exitCode } = runCli("bing");
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("query");
+    });
+
+    it("shows error when amazon command missing query", () => {
+      const { stderr, exitCode } = runCli("amazon");
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("query");
+    });
+
+    it("shows error when duckduckgo command missing query", () => {
+      const { stderr, exitCode } = runCli("duckduckgo");
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("query");
     });
   });
 });

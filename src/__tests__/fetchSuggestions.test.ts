@@ -497,4 +497,139 @@ describe("fetchSuggestions", () => {
       expect(result).toEqual(["result"]);
     });
   });
+
+  // DuckDuckGo tests
+  describe("DuckDuckGo source", () => {
+    it("fetches DuckDuckGo suggestions successfully", async () => {
+      const mockResponse = [
+        { phrase: "test suggestion 1" },
+        { phrase: "test suggestion 2" },
+        { phrase: "test suggestion 3" },
+      ];
+
+      nock("https://duckduckgo.com")
+        .get("/ac/")
+        .query({ q: "test" })
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("test", {}, "duckduckgo");
+      expect(result).toEqual(["test suggestion 1", "test suggestion 2", "test suggestion 3"]);
+    });
+
+    it("handles empty DuckDuckGo response", async () => {
+      nock("https://duckduckgo.com")
+        .get("/ac/")
+        .query({ q: "xyz123" })
+        .reply(200, []);
+
+      const result = await fetchSuggestions("xyz123", {}, "duckduckgo");
+      expect(result).toEqual([]);
+    });
+
+    it("throws error on DuckDuckGo HTTP error", async () => {
+      nock("https://duckduckgo.com")
+        .get("/ac/")
+        .query(true)
+        .reply(500);
+
+      await expect(fetchSuggestions("query", {}, "duckduckgo")).rejects.toThrow("HTTP error: 500");
+    });
+  });
+
+  // Amazon tests
+  describe("Amazon source", () => {
+    it("fetches Amazon suggestions successfully", async () => {
+      const mockResponse = ["laptop", ["laptop stand", "laptop bag", "laptop sleeve"], [], []];
+
+      nock("https://completion.amazon.com")
+        .get("/search/complete")
+        .query({ "search-alias": "aps", client: "amazon-search-ui", mkt: "1", q: "laptop" })
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("laptop", {}, "amazon");
+      expect(result).toEqual(["laptop stand", "laptop bag", "laptop sleeve"]);
+    });
+
+    it("handles empty Amazon response", async () => {
+      const mockResponse = ["xyz", [], [], []];
+
+      nock("https://completion.amazon.com")
+        .get("/search/complete")
+        .query(true)
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("xyz", {}, "amazon");
+      expect(result).toEqual([]);
+    });
+
+    it("throws error on Amazon HTTP error", async () => {
+      nock("https://completion.amazon.com")
+        .get("/search/complete")
+        .query(true)
+        .reply(503);
+
+      await expect(fetchSuggestions("query", {}, "amazon")).rejects.toThrow("HTTP error: 503");
+    });
+  });
+
+  // Bing tests
+  describe("Bing source", () => {
+    it("fetches Bing suggestions successfully", async () => {
+      const mockXmlResponse = `<?xml version="1.0"?>
+        <SearchSuggestion>
+          <Query>weather</Query>
+          <Section>
+            <Item><Text>weather today</Text></Item>
+            <Item><Text>weather forecast</Text></Item>
+            <Item><Text>weather radar</Text></Item>
+          </Section>
+        </SearchSuggestion>`;
+
+      nock("https://api.bing.com")
+        .get("/qsml.aspx")
+        .query({ Market: "en-US", query: "weather" })
+        .reply(200, mockXmlResponse);
+
+      const result = await fetchSuggestions("weather", {}, "bing");
+      expect(result).toEqual(["weather today", "weather forecast", "weather radar"]);
+    });
+
+    it("handles Bing with custom market", async () => {
+      const mockXmlResponse = `<?xml version="1.0"?>
+        <SearchSuggestion>
+          <Section>
+            <Item><Text>wetter heute</Text></Item>
+          </Section>
+        </SearchSuggestion>`;
+
+      nock("https://api.bing.com")
+        .get("/qsml.aspx")
+        .query({ Market: "de-DE", query: "wetter" })
+        .reply(200, mockXmlResponse);
+
+      const result = await fetchSuggestions("wetter", { lang: "de", country: "de" }, "bing");
+      expect(result).toEqual(["wetter heute"]);
+    });
+
+    it("handles empty Bing response", async () => {
+      const mockXmlResponse = `<?xml version="1.0"?><SearchSuggestion><Query>xyz</Query></SearchSuggestion>`;
+
+      nock("https://api.bing.com")
+        .get("/qsml.aspx")
+        .query(true)
+        .reply(200, mockXmlResponse);
+
+      const result = await fetchSuggestions("xyz", {}, "bing");
+      expect(result).toEqual([]);
+    });
+
+    it("throws error on Bing HTTP error", async () => {
+      nock("https://api.bing.com")
+        .get("/qsml.aspx")
+        .query(true)
+        .reply(429);
+
+      await expect(fetchSuggestions("query", {}, "bing")).rejects.toThrow("HTTP error: 429");
+    });
+  });
 });
