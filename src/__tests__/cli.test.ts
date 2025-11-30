@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { execSync } from "child_process";
 import { resolve } from "path";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../../package.json");
 
 const CLI_PATH = resolve(__dirname, "../../dist/index.js");
 
@@ -35,7 +39,7 @@ describe("CLI", () => {
     const { stdout, exitCode } = runCli("--version");
 
     expect(exitCode).toBe(0);
-    expect(stdout.trim()).toBe("1.0.0");
+    expect(stdout.trim()).toBe(pkg.version);
   });
 
   it("shows google command help", () => {
