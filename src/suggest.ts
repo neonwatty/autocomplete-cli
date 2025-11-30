@@ -1,7 +1,7 @@
 export const GOOGLE_BASE_URL = "https://suggestqueries.google.com/complete/search";
 export const DUCKDUCKGO_BASE_URL = "https://duckduckgo.com/ac/";
-export const AMAZON_BASE_URL = "https://completion.amazon.com/search/complete";
-export const BING_BASE_URL = "https://api.bing.com/qsml.aspx";
+export const AMAZON_BASE_URL = "https://completion.amazon.com/api/2017/suggestions";
+export const BING_BASE_URL = "https://www.bing.com/AS/Suggestions";
 export const DEFAULT_DELAY_MS = 100;
 
 // Keep for backwards compatibility
@@ -102,10 +102,9 @@ export async function fetchAmazonSuggestions(
   options: SuggestOptions
 ): Promise<string[]> {
   const params = new URLSearchParams({
-    "search-alias": "aps",
-    client: "amazon-search-ui",
-    mkt: "1",
-    q: query,
+    mid: "ATVPDKIKX0DER",
+    alias: "aps",
+    prefix: query,
   });
 
   const url = `${AMAZON_BASE_URL}?${params.toString()}`;
@@ -119,9 +118,11 @@ export async function fetchAmazonSuggestions(
 
   const data = await response.json();
 
-  // Response format: ["query", ["suggestion1", "suggestion2"], [], []]
-  if (Array.isArray(data) && Array.isArray(data[1])) {
-    return data[1];
+  // Response format: { suggestions: [{ value: "suggestion1" }, ...] }
+  if (data && Array.isArray(data.suggestions)) {
+    return data.suggestions
+      .map((item: { value?: string }) => item.value)
+      .filter(Boolean);
   }
 
   return [];
@@ -131,11 +132,14 @@ export async function fetchBingSuggestions(
   query: string,
   options: SuggestOptions
 ): Promise<string[]> {
-  const market = options.country ? `${options.lang || "en"}-${options.country.toUpperCase()}` : "en-US";
   const params = new URLSearchParams({
-    Market: market,
-    query: query,
+    qry: query,
+    cvid: "1",
   });
+
+  if (options.lang) {
+    params.set("setlang", options.lang);
+  }
 
   const url = `${BING_BASE_URL}?${params.toString()}`;
   const delayMs = options.delay ?? DEFAULT_DELAY_MS;
@@ -148,9 +152,9 @@ export async function fetchBingSuggestions(
 
   const text = await response.text();
 
-  // Parse XML response - extract text from <Text>...</Text> elements
+  // Parse HTML response - extract query attribute from <li> elements
   const suggestions: string[] = [];
-  const regex = /<Text>([^<]+)<\/Text>/g;
+  const regex = /query="([^"]+)"/g;
   let match;
   while ((match = regex.exec(text)) !== null) {
     suggestions.push(match[1]);
