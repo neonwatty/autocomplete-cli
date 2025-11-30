@@ -94,4 +94,43 @@ describe("CLI", () => {
       expect(stdout).toContain("-c, --country");
     });
   });
+
+  describe("delay option", () => {
+    it("shows --delay option in google command help", () => {
+      const { stdout, exitCode } = runCli("google --help");
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("-d, --delay");
+      expect(stdout).toContain("Delay between API calls");
+    });
+
+    it("shows --delay option in youtube command help", () => {
+      const { stdout, exitCode } = runCli("youtube --help");
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("-d, --delay");
+      expect(stdout).toContain("Delay between API calls");
+    });
+
+    it("shows default delay value in help", () => {
+      const { stdout, exitCode } = runCli("google --help");
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("default: 100");
+    });
+
+    it("accepts -d short flag in google command help", () => {
+      const { stdout, exitCode } = runCli("google --help");
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toMatch(/-d,?\s+--delay/);
+    });
+
+    it("accepts -d short flag in youtube command help", () => {
+      const { stdout, exitCode } = runCli("youtube --help");
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toMatch(/-d,?\s+--delay/);
+    });
+  });
 });

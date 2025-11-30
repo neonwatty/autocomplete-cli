@@ -16,7 +16,9 @@ program
   .argument("<query>", "Search query")
   .option("-l, --lang <code>", "Language code (e.g., en, de, es)")
   .option("-c, --country <code>", "Country code (e.g., us, uk, in)")
+  .option("-d, --delay <ms>", "Delay between API calls in milliseconds (default: 100)", "100")
   .action(async (query: string, options: SuggestOptions) => {
+    options.delay = parseInt(String(options.delay), 10);
     const result = await handleCommand(query, options, "google");
     if (!result.success) {
       console.error("Error:", result.error);
@@ -30,7 +32,9 @@ program
   .argument("<query>", "Search query")
   .option("-l, --lang <code>", "Language code (e.g., en, de, es)")
   .option("-c, --country <code>", "Country code (e.g., us, uk, in)")
+  .option("-d, --delay <ms>", "Delay between API calls in milliseconds (default: 100)", "100")
   .action(async (query: string, options: SuggestOptions) => {
+    options.delay = parseInt(String(options.delay), 10);
     const result = await handleCommand(query, options, "youtube");
     if (!result.success) {
       console.error("Error:", result.error);

@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import nock from "nock";
-import { fetchSuggestions } from "../suggest.js";
+import { fetchSuggestions, resetRateLimiter, DEFAULT_DELAY_MS } from "../suggest.js";
 
 describe("fetchSuggestions", () => {
   beforeEach(() => {
     nock.cleanAll();
+    resetRateLimiter();
   });
 
   afterEach(() => {
@@ -315,6 +316,185 @@ describe("fetchSuggestions", () => {
       expect(result).toHaveLength(100);
       expect(result[0]).toBe("suggestion 0");
       expect(result[99]).toBe("suggestion 99");
+    });
+  });
+
+  // Rate limiting tests
+  describe("rate limiting", () => {
+    it("exports DEFAULT_DELAY_MS constant", () => {
+      expect(DEFAULT_DELAY_MS).toBe(100);
+    });
+
+    it("respects custom delay option", async () => {
+      const mockResponse = ["query", ["result"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("query", { delay: 50 }, "google");
+      expect(result).toEqual(["result"]);
+    });
+
+    it("works with delay set to 0", async () => {
+      const mockResponse = ["query", ["result"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("query", { delay: 0 }, "google");
+      expect(result).toEqual(["result"]);
+    });
+
+    it("delays between rapid successive calls", async () => {
+      vi.useFakeTimers();
+
+      const mockResponse = ["query", ["result"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .times(2)
+        .reply(200, mockResponse);
+
+      // First call should proceed immediately
+      const firstCall = fetchSuggestions("query", { delay: 100 }, "google");
+      await vi.advanceTimersByTimeAsync(0);
+      await firstCall;
+
+      // Second call should be delayed
+      const secondCall = fetchSuggestions("query", { delay: 100 }, "google");
+
+      // Advance time to allow the delay
+      await vi.advanceTimersByTimeAsync(100);
+      await secondCall;
+
+      vi.useRealTimers();
+    });
+
+    it("resets rate limiter between tests", async () => {
+      const mockResponse = ["query", ["result"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, mockResponse);
+
+      // This should not be delayed because resetRateLimiter is called in beforeEach
+      const result = await fetchSuggestions("query", {}, "google");
+      expect(result).toEqual(["result"]);
+    });
+
+    it("uses default delay when delay option is undefined", async () => {
+      const mockResponse = ["query", ["result"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, mockResponse);
+
+      // No delay option provided - should use DEFAULT_DELAY_MS
+      const result = await fetchSuggestions("query", {}, "google");
+      expect(result).toEqual(["result"]);
+    });
+
+    it("handles multiple rapid calls with fake timers", async () => {
+      vi.useFakeTimers();
+
+      const mockResponse = ["query", ["result"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .times(3)
+        .reply(200, mockResponse);
+
+      // Make three rapid calls
+      const call1 = fetchSuggestions("query", { delay: 50 }, "google");
+      await vi.advanceTimersByTimeAsync(0);
+      await call1;
+
+      const call2 = fetchSuggestions("query", { delay: 50 }, "google");
+      await vi.advanceTimersByTimeAsync(50);
+      await call2;
+
+      const call3 = fetchSuggestions("query", { delay: 50 }, "google");
+      await vi.advanceTimersByTimeAsync(50);
+      const result = await call3;
+
+      expect(result).toEqual(["result"]);
+      vi.useRealTimers();
+    });
+
+    it("does not delay when enough time has passed", async () => {
+      vi.useFakeTimers();
+
+      const mockResponse = ["query", ["result"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .times(2)
+        .reply(200, mockResponse);
+
+      // First call
+      const call1 = fetchSuggestions("query", { delay: 50 }, "google");
+      await vi.advanceTimersByTimeAsync(0);
+      await call1;
+
+      // Wait longer than delay
+      await vi.advanceTimersByTimeAsync(100);
+
+      // Second call should not need to wait
+      const call2 = fetchSuggestions("query", { delay: 50 }, "google");
+      await vi.advanceTimersByTimeAsync(0);
+      const result = await call2;
+
+      expect(result).toEqual(["result"]);
+      vi.useRealTimers();
+    });
+
+    it("works with very large delay values", async () => {
+      const mockResponse = ["query", ["result"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("query", { delay: 10000 }, "google");
+      expect(result).toEqual(["result"]);
+    });
+
+    it("combines delay with other options", async () => {
+      const mockResponse = ["query", ["result"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query({ client: "firefox", q: "query", hl: "de", gl: "de" })
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions(
+        "query",
+        { lang: "de", country: "de", delay: 0 },
+        "google"
+      );
+      expect(result).toEqual(["result"]);
+    });
+
+    it("works with youtube and custom delay", async () => {
+      const mockResponse = ["query", ["result"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query({ client: "firefox", q: "query", ds: "yt" })
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("query", { delay: 25 }, "youtube");
+      expect(result).toEqual(["result"]);
     });
   });
 });
