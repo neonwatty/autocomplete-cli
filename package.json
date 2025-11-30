@@ -1,6 +1,6 @@
 {
   "name": "@neonwatty/autocomplete-cli",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "CLI tool to query Google and YouTube autocomplete suggestions",
   "main": "dist/index.js",
   "bin": {
