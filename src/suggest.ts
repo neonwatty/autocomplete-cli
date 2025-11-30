@@ -1,8 +1,26 @@
 export const BASE_URL = "https://suggestqueries.google.com/complete/search";
+export const DEFAULT_DELAY_MS = 100;
+
+let lastCallTime = 0;
+
+export function resetRateLimiter(): void {
+  lastCallTime = 0;
+}
+
+async function rateLimitedFetch(url: string, delayMs: number = DEFAULT_DELAY_MS): Promise<Response> {
+  const now = Date.now();
+  const elapsed = now - lastCallTime;
+  if (elapsed < delayMs && lastCallTime > 0) {
+    await new Promise(resolve => setTimeout(resolve, delayMs - elapsed));
+  }
+  lastCallTime = Date.now();
+  return fetch(url);
+}
 
 export interface SuggestOptions {
   lang?: string;
   country?: string;
+  delay?: number;
 }
 
 export async function fetchSuggestions(
@@ -28,8 +46,9 @@ export async function fetchSuggestions(
   }
 
   const url = `${BASE_URL}?${params.toString()}`;
+  const delayMs = options.delay ?? DEFAULT_DELAY_MS;
 
-  const response = await fetch(url);
+  const response = await rateLimitedFetch(url, delayMs);
 
   if (!response.ok) {
     throw new Error(`HTTP error: ${response.status}`);
