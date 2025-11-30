@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
-import { fetchSuggestions, printSuggestions, SuggestOptions } from "./suggest.js";
+import { handleCommand, SuggestOptions } from "./suggest.js";
 
 const program = new Command();
 
@@ -17,11 +17,9 @@ program
   .option("-l, --lang <code>", "Language code (e.g., en, de, es)")
   .option("-c, --country <code>", "Country code (e.g., us, uk, in)")
   .action(async (query: string, options: SuggestOptions) => {
-    try {
-      const suggestions = await fetchSuggestions(query, options, "google");
-      printSuggestions(suggestions);
-    } catch (error) {
-      console.error("Error:", (error as Error).message);
+    const result = await handleCommand(query, options, "google");
+    if (!result.success) {
+      console.error("Error:", result.error);
       process.exit(1);
     }
   });
@@ -33,11 +31,9 @@ program
   .option("-l, --lang <code>", "Language code (e.g., en, de, es)")
   .option("-c, --country <code>", "Country code (e.g., us, uk, in)")
   .action(async (query: string, options: SuggestOptions) => {
-    try {
-      const suggestions = await fetchSuggestions(query, options, "youtube");
-      printSuggestions(suggestions);
-    } catch (error) {
-      console.error("Error:", (error as Error).message);
+    const result = await handleCommand(query, options, "youtube");
+    if (!result.success) {
+      console.error("Error:", result.error);
       process.exit(1);
     }
   });

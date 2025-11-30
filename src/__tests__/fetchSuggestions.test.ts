@@ -117,4 +117,204 @@ describe("fetchSuggestions", () => {
 
     expect(result).toEqual([]);
   });
+
+  // Phase 1: HTTP Status Code Tests
+  describe("HTTP status codes", () => {
+    it("throws error on 400 Bad Request", async () => {
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(400);
+
+      await expect(fetchSuggestions("query", {}, "google")).rejects.toThrow("HTTP error: 400");
+    });
+
+    it("throws error on 403 Forbidden", async () => {
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(403);
+
+      await expect(fetchSuggestions("query", {}, "google")).rejects.toThrow("HTTP error: 403");
+    });
+
+    it("throws error on 404 Not Found", async () => {
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(404);
+
+      await expect(fetchSuggestions("query", {}, "google")).rejects.toThrow("HTTP error: 404");
+    });
+
+    it("throws error on 429 Too Many Requests", async () => {
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(429);
+
+      await expect(fetchSuggestions("query", {}, "google")).rejects.toThrow("HTTP error: 429");
+    });
+
+    it("throws error on 503 Service Unavailable", async () => {
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(503);
+
+      await expect(fetchSuggestions("query", {}, "google")).rejects.toThrow("HTTP error: 503");
+    });
+  });
+
+  // Phase 1: Input Edge Cases
+  describe("input edge cases", () => {
+    it("handles query with special characters", async () => {
+      const mockResponse = ["test <script>", ["result"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("test <script>", {}, "google");
+      expect(result).toEqual(["result"]);
+    });
+
+    it("handles query with unicode characters", async () => {
+      const mockResponse = ["café", ["café latte", "café mocha"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("café", {}, "google");
+      expect(result).toEqual(["café latte", "café mocha"]);
+    });
+
+    it("handles query with spaces", async () => {
+      const mockResponse = ["how to code", ["how to code in python"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("how to code", {}, "google");
+      expect(result).toEqual(["how to code in python"]);
+    });
+
+    it("handles empty query string", async () => {
+      const mockResponse = ["", []];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("", {}, "google");
+      expect(result).toEqual([]);
+    });
+
+    it("handles query with ampersand and equals", async () => {
+      const mockResponse = ["a=b&c=d", ["result"]];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("a=b&c=d", {}, "google");
+      expect(result).toEqual(["result"]);
+    });
+  });
+
+  // Phase 2: Network Error Tests
+  describe("network errors", () => {
+    it("throws error on connection refused", async () => {
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .replyWithError({ code: "ECONNREFUSED", message: "Connection refused" });
+
+      await expect(fetchSuggestions("query", {}, "google")).rejects.toThrow();
+    });
+
+    it("throws error on connection reset", async () => {
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .replyWithError({ code: "ECONNRESET", message: "Connection reset" });
+
+      await expect(fetchSuggestions("query", {}, "google")).rejects.toThrow();
+    });
+
+    it("throws error on socket hang up", async () => {
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .replyWithError("socket hang up");
+
+      await expect(fetchSuggestions("query", {}, "google")).rejects.toThrow();
+    });
+  });
+
+  // Phase 2: Response Parsing Edge Cases
+  describe("response parsing", () => {
+    it("handles null in response array", async () => {
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, ["query", []]);
+
+      const result = await fetchSuggestions("query", {}, "google");
+      expect(result).toEqual([]);
+    });
+
+    it("throws error on invalid JSON response", async () => {
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, "not valid json", { "Content-Type": "text/plain" });
+
+      await expect(fetchSuggestions("query", {}, "google")).rejects.toThrow();
+    });
+
+    it("handles empty object response", async () => {
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, {});
+
+      const result = await fetchSuggestions("query", {}, "google");
+      expect(result).toEqual([]);
+    });
+
+    it("handles response with extra metadata", async () => {
+      const mockResponse = ["query", ["suggestion"], { extra: "data" }];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("query", {}, "google");
+      expect(result).toEqual(["suggestion"]);
+    });
+
+    it("handles large number of suggestions", async () => {
+      const suggestions = Array.from({ length: 100 }, (_, i) => `suggestion ${i}`);
+      const mockResponse = ["query", suggestions];
+
+      nock("https://suggestqueries.google.com")
+        .get("/complete/search")
+        .query(true)
+        .reply(200, mockResponse);
+
+      const result = await fetchSuggestions("query", {}, "google");
+      expect(result).toHaveLength(100);
+      expect(result[0]).toBe("suggestion 0");
+      expect(result[99]).toBe("suggestion 99");
+    });
+  });
 });

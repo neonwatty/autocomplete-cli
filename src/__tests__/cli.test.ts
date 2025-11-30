@@ -62,4 +62,35 @@ describe("CLI", () => {
     const output = stdout + stderr;
     expect(output).toContain("Usage:");
   });
+
+  describe("error scenarios", () => {
+    it("shows error for unknown command", () => {
+      const { stderr, exitCode } = runCli("unknown");
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("unknown");
+    });
+
+    it("shows error when google command missing query", () => {
+      const { stderr, exitCode } = runCli("google");
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("query");
+    });
+
+    it("shows error when youtube command missing query", () => {
+      const { stderr, exitCode } = runCli("youtube");
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("query");
+    });
+
+    it("accepts short option flags", () => {
+      const { stdout, exitCode } = runCli("google --help");
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("-l, --lang");
+      expect(stdout).toContain("-c, --country");
+    });
+  });
 });

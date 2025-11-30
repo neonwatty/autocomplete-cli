@@ -53,3 +53,22 @@ export function printSuggestions(suggestions: string[]): void {
 
   suggestions.forEach((s) => console.log(s));
 }
+
+export interface CommandResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function handleCommand(
+  query: string,
+  options: SuggestOptions,
+  source: "google" | "youtube"
+): Promise<CommandResult> {
+  try {
+    const suggestions = await fetchSuggestions(query, options, source);
+    printSuggestions(suggestions);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
